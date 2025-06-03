@@ -11,6 +11,7 @@ RUN apt-get install -y build-essential rsync
 RUN cp mempool-frontend-config.sample.json mempool-frontend-config.json
 RUN npm install --omit=dev --omit=optional
 
+ENV SKIP_SYNC=1
 RUN npm run build
 
 FROM nginx:1.27.0-alpine
