@@ -1,0 +1,74 @@
+name: Docker build on master push
+
+env:
+  DOCKER_CLI_EXPERIMENTAL: enabled
+  DOCKER_BUILDKIT: 1
+
+on:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        service:
+          - frontend
+          - backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    name: Build and push to DockerHub
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set env variables
+        run: |
+          echo "SHORT_SHA=$(echo ${GITHUB_SHA} | cut -c1-8)" >> $GITHUB_ENV
+          echo "DATE_TAG=$(date +'%Y%m%d')" >> $GITHUB_ENV
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USER }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: linux/amd64,linux/arm64
+
+      - name: Setup Docker buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          platforms: linux/amd64,linux/arm64
+
+      - name: Init repo for Dockerization
+        run: docker/init.sh "master-${SHORT_SHA}"
+
+      - name: Cache Docker layers
+        uses: actions/cache@v3
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ matrix.service }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-${{ matrix.service }}-
+
+      - name: Build and push ${{ matrix.service }}
+        run: |
+          docker buildx build \
+          --cache-from "type=local,src=/tmp/.buildx-cache" \
+          --cache-to "type=local,dest=/tmp/.buildx-cache,mode=max" \
+          --platform linux/amd64,linux/arm64 \
+          --tag ${{ secrets.DOCKER_HUB_USER }}/${{ matrix.service }}:master \
+          --tag ${{ secrets.DOCKER_HUB_USER }}/${{ matrix.service }}:master-$SHORT_SHA \
+          --tag ${{ secrets.DOCKER_HUB_USER }}/${{ matrix.service }}:$DATE_TAG-$SHORT_SHA \
+          --build-context rustgbt=./rust \
+          --build-context backend=./backend \
+          --output "type=registry,push=true" \
+          --build-arg commitHash=$SHORT_SHA \
+          ./${{ matrix.service }}/ 
