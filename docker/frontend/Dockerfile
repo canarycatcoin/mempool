@@ -6,9 +6,11 @@ ENV CYPRESS_INSTALL_BINARY=0
 
 WORKDIR /build
 COPY . .
-RUN apt-get update
-RUN apt-get install -y build-essential rsync
-RUN cp mempool-frontend-config.sample.json mempool-frontend-config.json
+
+RUN apt-get update && \
+    apt-get install -y build-essential rsync && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # Configure npm for better network handling
 RUN npm config set fetch-timeout 300000 && \
@@ -16,6 +18,13 @@ RUN npm config set fetch-timeout 300000 && \
     npm config set fetch-retry-maxtimeout 120000 && \
     npm config set fetch-retries 5 && \
     npm config set registry https://registry.npmjs.org/
+
+WORKDIR /build/frontend
+
+# Copy sample config if needed
+RUN if [ -f mempool-frontend-config.sample.json ]; then \
+      cp mempool-frontend-config.sample.json mempool-frontend-config.json; \
+    fi
 
 # Use npm ci for faster, more reliable installs with retries
 RUN npm ci --omit=dev --omit=optional || \
@@ -29,14 +38,14 @@ FROM nginx:1.27.0-alpine
 
 WORKDIR /patch
 
-COPY --from=builder /build/entrypoint.sh .
-COPY --from=builder /build/wait-for .
-COPY --from=builder /build/dist/mempool /var/www/mempool
+COPY --from=builder /build/docker/frontend/entrypoint.sh .
+COPY --from=builder /build/docker/frontend/wait-for .
+COPY --from=builder /build/frontend/dist/mempool /var/www/mempool
 COPY --from=builder /build/nginx.conf /etc/nginx/
 COPY --from=builder /build/nginx-mempool.conf /etc/nginx/conf.d/
 
-RUN chmod +x /patch/entrypoint.sh
-RUN chmod +x /patch/wait-for
+RUN chmod +x /patch/entrypoint.sh && \
+    chmod +x /patch/wait-for
 
 RUN chown -R 1000:1000 /patch && chmod -R 755 /patch && \
         chown -R 1000:1000 /var/cache/nginx && \
