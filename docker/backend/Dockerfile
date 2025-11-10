@@ -48,6 +48,9 @@ RUN npm run build
 # Package the application
 RUN npm run package
 
+# Ensure GeoIP directory exists (create empty one if it doesn't)
+RUN mkdir -p /build/backend/GeoIP
+
 FROM rust:1.84-bookworm AS runtime
 
 RUN apt-get update && \
@@ -61,14 +64,10 @@ WORKDIR /backend
 
 RUN chown 1000:1000 ./
 COPY --from=builder --chown=1000:1000 /build/backend/package ./package/
+COPY --from=builder --chown=1000:1000 /build/backend/GeoIP ./GeoIP/
 COPY --from=builder --chown=1000:1000 /build/docker/backend/mempool-config.json ./
 COPY --from=builder --chown=1000:1000 /build/docker/backend/start.sh ./
 COPY --from=builder --chown=1000:1000 /build/docker/backend/wait-for-it.sh ./
-
-# Copy GeoIP if it exists (using RUN with shell for conditional copy)
-RUN if [ -d /build/backend/GeoIP ]; then \
-      cp -r /build/backend/GeoIP ./GeoIP && chown -R 1000:1000 ./GeoIP; \
-    fi
 
 USER 1000
 
