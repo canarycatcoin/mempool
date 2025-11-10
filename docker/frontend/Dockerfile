@@ -31,14 +31,20 @@ RUN npm ci --omit=dev --omit=optional || \
     (npm cache clean --force && npm ci --omit=dev --omit=optional) || \
     (sleep 10 && npm ci --omit=dev --omit=optional)
 
-# Unset MEMPOOL_CDN to prevent attempting to download assets from mempool.space
-ENV MEMPOOL_CDN=
 # Create necessary directory structure to prevent download errors
 RUN mkdir -p src/resources/mining-pools && \
     touch src/resources/mining-pools/.gitkeep
 
-# Build the application (sync-assets will skip downloads with MEMPOOL_CDN unset)
-RUN npm run build
+# Unset MEMPOOL_CDN and disable asset downloads by setting offline mode
+ENV MEMPOOL_CDN=
+ENV OFFLINE_BUILD=true
+
+# Build the application without running sync-assets steps
+# Generate config, build Angular app, build mempool.js bundles
+RUN npm run generate-config && \
+    npm run ng -- build --configuration production --localize && \
+    npm run build-mempool.js && \
+    rsync -av ./src/resources ./dist/mempool/browser
 
 FROM nginx:1.27.0-alpine
 
