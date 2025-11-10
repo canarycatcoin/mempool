@@ -16,13 +16,6 @@ COPY . .
 
 ENV PATH="/usr/local/cargo/bin:$PATH"
 
-# Build rust-gbt
-WORKDIR /build/rust/gbt
-RUN npm run build-release
-
-# Build backend
-WORKDIR /build/backend
-
 # Configure npm for better network handling
 RUN npm config set fetch-timeout 300000 && \
     npm config set fetch-retry-mintimeout 20000 && \
@@ -30,15 +23,26 @@ RUN npm config set fetch-timeout 300000 && \
     npm config set fetch-retries 5 && \
     npm config set registry https://registry.npmjs.org/
 
-# Copy rust-gbt to backend
-RUN mkdir -p rust-gbt && \
-    cp -r ../rust/gbt/pkg/* rust-gbt/
+# Build rust-gbt
+WORKDIR /build/rust/gbt
+# Install @napi-rs/cli first (needed by build script)
+RUN npm install --no-save @napi-rs/cli@2.18.0
+# Build rust-gbt
+RUN npm run build -- --release --strip
 
-# Use npm ci for faster, more reliable installs with retries
+# Copy rust-gbt output to backend directory
+RUN mkdir -p /build/backend/rust-gbt && \
+    cp index.js index.d.ts package.json *.node /build/backend/rust-gbt/ 2>/dev/null || true
+
+# Build backend
+WORKDIR /build/backend
+
+# Install backend dependencies (with rust-gbt already built and copied)
 RUN npm ci --omit=dev --omit=optional || \
     (npm cache clean --force && npm ci --omit=dev --omit=optional) || \
     (sleep 10 && npm ci --omit=dev --omit=optional)
 
+# Build the backend
 RUN npm run build
 
 # Package the application
