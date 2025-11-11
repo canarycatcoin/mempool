@@ -53,8 +53,8 @@ WORKDIR /patch
 COPY --from=builder /build/docker/frontend/entrypoint.sh .
 COPY --from=builder /build/docker/frontend/wait-for .
 COPY --from=builder /build/frontend/dist/mempool /var/www/mempool
-COPY --from=builder /build/nginx.conf /etc/nginx/
-COPY --from=builder /build/nginx-mempool.conf /etc/nginx/conf.d/
+COPY --from=builder /build/nginx.conf /etc/nginx/nginx.conf
+COPY --from=builder /build/nginx-mempool.conf /etc/nginx/nginx-mempool.conf
 
 RUN chmod +x /patch/entrypoint.sh && \
     chmod +x /patch/wait-for
@@ -63,7 +63,7 @@ RUN chown -R 1000:1000 /patch && chmod -R 755 /patch && \
         chown -R 1000:1000 /var/cache/nginx && \
         chown -R 1000:1000 /var/log/nginx && \
         chown -R 1000:1000 /etc/nginx/nginx.conf && \
-        chown -R 1000:1000 /etc/nginx/conf.d && \
+        chown -R 1000:1000 /etc/nginx/nginx-mempool.conf && \
         chown -R 1000:1000 /var/www/mempool
 
 RUN touch /var/run/nginx.pid && \
