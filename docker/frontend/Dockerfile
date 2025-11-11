@@ -64,7 +64,7 @@ RUN chown -R 1000:1000 /patch && chmod -R 755 /patch && \
         chown -R 1000:1000 /var/log/nginx && \
         chown -R 1000:1000 /etc/nginx/nginx.conf && \
         chown -R 1000:1000 /etc/nginx/nginx-mempool.conf && \
-        chmod 664 /etc/nginx/nginx-mempool.conf && \
+        chmod 775 /etc/nginx && \
         chown -R 1000:1000 /var/www/mempool
 
 RUN touch /var/run/nginx.pid && \
